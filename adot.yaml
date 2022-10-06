@@ -1,0 +1,203 @@
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: adotcol-admin-role
+rules:
+  - apiGroups: [""]
+    resources:
+      - nodes
+      - nodes/proxy
+      - nodes/metrics
+      - services
+      - endpoints
+      - pods
+      - pods/proxy
+      - configmaps
+    verbs: ["get", "list", "watch"]
+  - nonResourceURLs: [ "/metrics/cadvisor","/metrics"]
+    verbs: ["get", "list", "watch"]
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: adotcol-admin-role-binding
+subjects:
+  - kind: ServiceAccount
+    name: adot-collector
+    namespace: fargate-container-insights
+roleRef:
+  kind: ClusterRole
+  name: adotcol-admin-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: adot-collector-config
+  namespace: fargate-container-insights
+  labels:
+    app: aws-adot
+    component: adot-collector-config
+data:
+  adot-collector-config: |
+    receivers:
+      prometheus:
+        config:
+          global:
+            scrape_interval: 1m
+            scrape_timeout: 40s
+
+          scrape_configs:
+          - job_name: 'kube-state-metrics'
+            static_configs:
+              - targets: ['kube-state-metrics.aws-observability.svc.cluster.local:8080']
+            
+
+    processors:
+      # filter out only renamed metrics which we care about
+      filter:
+        metrics:
+          include:
+            match_type: regexp
+            metric_names:
+              - kube_pod_container_status_restarts.*
+
+      # add `Type` and rename metrics and labels
+      metricstransform/label:
+        transforms:
+          - include: .*
+            match_type: regexp
+            action: update
+            operations:
+              - action: update_label
+                label: namespace
+                new_label: Namespace
+              - action: update_label
+                label: pod
+                new_label: PodName
+              - action: update_label
+                label: container
+                new_label: ContainerName
+          - include: kube_pod_container_status_restarts.*
+            match_type: regexp
+            action: update
+            operations:
+              - action: add_label
+                new_label: Type
+                new_value: "Container"
+              - action: add_label
+                new_label: Type
+                new_value: "Pod"
+                
+
+      # add cluster name from env variable and EKS metadata
+      resourcedetection:
+        detectors: [env, eks]
+
+      batch:
+        timeout: 60s
+
+    # only pod level metrics in metrics format, details in https://aws-otel.github.io/docs/getting-started/container-insights/eks-fargate
+    exporters:
+      awsemf:
+        log_group_name: '/aws/containerinsights/{ClusterName}/performance'
+        log_stream_name: 'container-restarts'
+        namespace: 'ContainerInsights'
+        region: eu-west-1
+        resource_to_telemetry_conversion:
+          enabled: true
+        eks_fargate_container_insights_enabled: true
+        parse_json_encoded_attr_values: ["kubernetes"]
+        dimension_rollup_option: NoDimensionRollup
+        metric_declarations:
+          - dimensions: [[ClusterName, ContainerName, Namespace, PodName],[ClusterName, ContainerName, Namespace]]
+            metric_name_selectors:
+              - kube_pod_container_status_restarts_total
+              
+    extensions:
+      health_check:
+
+    service:
+      telemetry:
+        logs:
+          level: "debug"
+      pipelines:
+        metrics:
+          receivers: [prometheus]
+          processors: [metricstransform/label, resourcedetection, filter, batch]
+          exporters: [awsemf]
+      extensions: [health_check]
+
+# configure the service and the collector as a StatefulSet
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: adot-collector-service
+  namespace: fargate-container-insights
+  labels:
+    app: aws-adot
+    component: adot-collector
+spec:
+  ports:
+    - name: metrics # default endpoint for querying metrics.
+      port: 8888
+  selector:
+    component: adot-collector
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: adot-collector
+  namespace: fargate-container-insights
+  labels:
+    app: aws-adot
+    component: adot-collector
+spec:
+  selector:
+    matchLabels:
+      app: aws-adot
+      component: adot-collector
+  serviceName: adot-collector-service
+  template:
+    metadata:
+      labels:
+        app: aws-adot
+        component: adot-collector
+    spec:
+      serviceAccountName: adot-collector
+      securityContext:
+        fsGroup: 65534
+      containers:
+        - image: amazon/aws-otel-collector:v0.20.0
+          name: adot-collector
+          imagePullPolicy: Always
+          command:
+            - "/awscollector"
+            - "--config=/conf/adot-collector-config.yaml"
+          env:
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: "ClusterName=YOUR-EKS-CLUSTER-NAME"
+          resources:
+            limits:
+              cpu: 200m
+              memory: 400Mi
+            requests:
+              cpu: 200m
+              memory: 400Mi
+          volumeMounts:
+            - name: adot-collector-config-volume
+              mountPath: /conf
+      volumes:
+        - configMap:
+            name: adot-collector-config
+            items:
+              - key: adot-collector-config
+                path: adot-collector-config.yaml
+          name: adot-collector-config-volume
+---
