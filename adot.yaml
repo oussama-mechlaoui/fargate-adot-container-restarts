@@ -106,7 +106,7 @@ data:
         log_group_name: '/aws/containerinsights/{ClusterName}/performance'
         log_stream_name: 'container-restarts'
         namespace: 'ContainerInsights'
-        region: eu-west-1
+        region: YOUR-REGION
         resource_to_telemetry_conversion:
           enabled: true
         eks_fargate_container_insights_enabled: true
