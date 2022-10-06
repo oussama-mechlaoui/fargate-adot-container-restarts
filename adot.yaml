@@ -87,10 +87,7 @@ data:
             operations:
               - action: add_label
                 new_label: Type
-                new_value: "Container"
-              - action: add_label
-                new_label: Type
-                new_value: "Pod"
+                new_value: "Fargate"
                 
 
       # add cluster name from env variable and EKS metadata
@@ -113,7 +110,7 @@ data:
         parse_json_encoded_attr_values: ["kubernetes"]
         dimension_rollup_option: NoDimensionRollup
         metric_declarations:
-          - dimensions: [[ClusterName, ContainerName, Namespace, PodName],[ClusterName, ContainerName, Namespace]]
+          - dimensions: [[ClusterName, ContainerName, Namespace, LaunchType]]
             metric_name_selectors:
               - kube_pod_container_status_restarts_total
               
