@@ -160,10 +160,10 @@ data:
           - dimensions: [[ClusterName, ContainerName, Namespace, LaunchType]]
             metric_name_selectors:
               - kube_pod_container_status_restarts_total
-#            label_matchers:
-#              - label_names:
-#                  - ContainerName
-#                regex: "^CONTAINER-NAME*"
+              label_matchers:
+              - label_names:
+                  - ContainerName
+                regex: "^CONTAINER-NAME*"
 
     extensions:
       health_check:
