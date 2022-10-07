@@ -19,10 +19,10 @@
         "SNS:Publish",
         "SNS:Receive"
       ],
-      "Resource": "arn:aws:sns:Region:ACCOUNT_ID:AlarmName",
+      "Resource": "arn:aws:sns:Region:AccountID:TopicName",
       "Condition": {
         "StringEquals": {
-          "AWS:SourceOwner": "ACCOUNT_ID"
+          "AWS:SourceOwner": "AccountID"
         }
       }
     },
@@ -32,13 +32,13 @@
         "Service": "cloudwatch.amazonaws.com"
       },
       "Action": "SNS:Publish",
-      "Resource": "arn:aws:sns:Region:ACCOUNT_ID:TopicName",
+      "Resource": "arn:aws:sns:Region:AccountID:TopicName",
       "Condition": {
         "StringEquals": {
-          "aws:SourceAccount": "ACCOUNT_ID"
+          "aws:SourceAccount": "AccountID"
         },
         "ArnLike": {
-          "aws:SourceArn": "arn:aws:cloudwatch:Region:ACCOUNT_ID:alarm:AlarmName"
+          "aws:SourceArn": "arn:aws:cloudwatch:Region:AccountID:alarm:AlertName"
         }
       }
     }
