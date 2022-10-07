@@ -38,7 +38,7 @@
           "aws:SourceAccount": "AccountID"
         },
         "ArnLike": {
-          "aws:SourceArn": "arn:aws:cloudwatch:Region:AccountID:alarm:AlertName"
+          "aws:SourceArn": "arn:aws:cloudwatch:Region:AccountID:alarm:AlarmName"
         }
       }
     }
