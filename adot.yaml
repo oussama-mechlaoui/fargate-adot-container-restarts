@@ -150,7 +150,7 @@ data:
         log_group_name: '/aws/containerinsights/{ClusterName}/performance'
         log_stream_name: 'container-restarts'
         namespace: 'ContainerInsights'
-        region: eu-west-1
+        region: YOUR-REGION
         resource_to_telemetry_conversion:
           enabled: true
         eks_fargate_container_insights_enabled: true
@@ -230,7 +230,7 @@ spec:
             - "--config=/conf/adot-collector-config.yaml"
           env:
             - name: OTEL_RESOURCE_ATTRIBUTES
-              value: "ClusterName=terraform-fargate-blueprint"
+              value: "ClusterName=YOUR-EKS-CLUSTER-NAME"
           resources:
             limits:
               cpu: 200m
