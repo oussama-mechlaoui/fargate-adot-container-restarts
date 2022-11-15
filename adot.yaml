@@ -163,7 +163,7 @@ data:
             label_matchers:
               - label_names:
                   - ContainerName
-                regex: "^CONTAINER-NAME*"
+                regex: "CONTAINER-NAME"
 
     extensions:
       health_check:
